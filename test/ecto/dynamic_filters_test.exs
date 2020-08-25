@@ -69,6 +69,13 @@ defmodule PhoenixApiToolkit.Ecto.DynamicFiltersTest do
     end)
   end
 
+  def list_order_by_only(filters \\ %{}) do
+    from(user in "users", as: :user)
+    |> apply_filters(Map.take(filters, [:order_by, "order_by"]), fn filter, query ->
+      order_by_only(query, filter, :user, @filter_definitions, &resolve_binding/2)
+    end)
+  end
+
   # this is a little helper to update the docs
   # test "generate rendered filter docs" do
   #   ("\n" <> generate_filter_docs(@filter_definitions, equal_to: [:group_name]))

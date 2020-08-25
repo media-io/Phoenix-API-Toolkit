@@ -590,6 +590,88 @@ defmodule PhoenixApiToolkit.Ecto.DynamicFilters do
   end
 
   @doc """
+  Apply order_by filter, with `equal_to` aliases.
+
+  ## Examples / doctests
+
+      def list_order_by_only(filters \\\\ %{}) do
+        from(user in "users", as: :user)
+        |> apply_filters(Map.take(filters, [:order_by, "order_by"]), fn filter, query ->
+          order_by_only(query, filter, :user, @filter_definitions, &resolve_binding/2)
+        end)
+      end
+
+      iex> list_order_by_only(%{})
+      #Ecto.Query<from u0 in "users", as: :user>
+
+      iex> list_order_by_only(%{equal_to: [:first_name]})
+      #Ecto.Query<from u0 in "users", as: :user>
+
+      iex> list_order_by_only(%{"order_by" => [desc: :first_name, asc: :role_name]})
+      #Ecto.Query<from u0 in "users", as: :user, left_join: r1 in "roles", as: :role, on: true, order_by: [desc: u0.first_name], order_by: [asc: r1.name]>
+  """
+  @spec order_by_only(
+          Query.t(),
+          filter(),
+          atom(),
+          filter_definitions(),
+          (Query.t(), atom() -> Query.t())
+        ) :: any()
+  defmacro order_by_only(
+             query,
+             filter,
+             default_binding,
+             filter_definitions,
+             resolve_binding
+           ) do
+    definitions = filter_definitions |> Macro.expand(__CALLER__)
+
+    definitions = [
+      order_by: true,
+      atom_keys: definitions[:atom_keys],
+      string_keys: definitions[:string_keys],
+      equal_to: definitions[:equal_to]
+    ]
+
+    clauses =
+      []
+      |> maybe_support_order_by(definitions, default_binding, resolve_binding)
+
+    quote generated: true do
+      query = unquote(query)
+      filter = unquote(filter)
+
+      case filter, do: unquote(clauses)
+    end
+  end
+
+  @doc """
+  Same as `order_by_only/5` but does not support dynamically resolving named bindings.
+  """
+  @spec order_by_only(
+          Query.t(),
+          filter,
+          atom,
+          filter_definitions
+        ) :: any
+  defmacro order_by_only(
+             query,
+             filter,
+             default_binding,
+             filter_definitions
+           ) do
+    quote do
+      order_by_only(
+        unquote(query),
+        unquote(filter),
+        unquote(default_binding),
+        unquote(filter_definitions),
+        fn q, _ -> q end
+      )
+    end
+  end
+
+  @doc """
   Generate a markdown docstring from filter definitions, as passed to `standard_filters/4`,
   as defined by `t:filter_definitions/0`. By specifying `extras`, documentation can be generated
   for any custom filters supported by your function as well.
